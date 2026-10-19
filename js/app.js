@@ -237,10 +237,18 @@ function cancelTx() {
 }
 
 /* ---------- Data pengguna ---------- */
+
 async function loadConfig() {
-  const c = await ok(sb.from('app_config').select('*').maybeSingle());
-  if (c) Object.assign(S.cfg, {maxLoan: c.max_loan, weightMin: Number(c.weight_min), weightMax: Number(c.weight_max), loanDays: c.loan_days});
+  // Gunakan konfigurasi bawaan sementara.
+  // Tidak mengakses tabel app_config yang belum tersedia.
+  S.cfg = {
+    maxLoan: 2,
+    weightMin: 180,
+    weightMax: 220,
+    loanDays: 3
+  };
 }
+
 async function loadLoans() {
   S.loans = await ok(sb.from('loans').select('id,borrowed_at,due_at').eq('user_id', S.u.id).is('returned_at', null).order('borrowed_at'));
 }
