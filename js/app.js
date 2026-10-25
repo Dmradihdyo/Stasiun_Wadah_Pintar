@@ -13,7 +13,8 @@ const S = {
   cfg: {maxLoan: 2, weightMin: 80, weightMax: 120, loanDays: 3},
   loans: [], sess: null, last: '', view: '', msg: '',
   kind: 'borrow', rid: '', tx: null, done: false, w: 0,
-  hb: 0, wt: 0, poll: 0, tm: [], ch: {}, token: '', stream: null
+  hb: 0, wt: 0, poll: 0, tm: [], ch: {}, token: '', stream: null,
+  alert: false, stCode: ''
 };
 
 let LOGIN_MSG = '';
@@ -137,6 +138,7 @@ const V = {
         <div>
           <h2>Menu utama</h2>
           ${warn}
+          ${stationAlertBox()}
           <div class="box">
             <b>${esc(S.p.full_name || S.u?.email || 'Pengguna')}</b><br>
             <span class="sub">${esc(S.u?.email || '')}</span>
@@ -171,6 +173,7 @@ const V = {
   ret: () => `
     <h2>Kembalikan</h2>
     <p class="sub">Letakkan wadah di slot pengembalian.</p>
+    ${stationAlertBox()}
     <div class="slot">${LB}</div>
     <div class="box">Menunggu wadah...</div>
     ${btn('cancel', 'Batal', 1)}
@@ -201,6 +204,7 @@ const V = {
     ${ic('x', 'e')}
     <h2>Terjadi kesalahan</h2>
     ${alertBox(S.msg)}
+    ${stationAlertBox()}
     ${btn('retry', 'Coba lagi')}
     ${btn('dash', 'Batal', 1)}
   `,
@@ -373,6 +377,7 @@ async function claim(code) {
     }
 
     startSession(r.session_id);
+    watchStation(code);
     show('dash');
   } catch {
     show('scan', 'Gagal menghubungi stasiun. Coba lagi.');
@@ -418,12 +423,64 @@ function endSession(release = true) {
   clearInterval(S.poll);
   unsub('s');
   unsub('t');
+  unsub('st');
 
   S.sess = null;
   S.tx = null;
+  S.alert = false;
+  S.stCode = '';
 
   if (release && id) {
     sb.rpc('end_session', {p_session: id}).then(() => {}, () => {});
+  }
+}
+
+/* ---------- Peringatan dari stasiun (pintu masih menunggu wadah dikeluarkan) ---------- */
+
+// Banner hanya tampil untuk pengguna yang sedang memakai stasiun itu.
+function stationAlertBox() {
+  return S.alert
+    ? '<div class="alert" role="alert"><b>Masih ada wadah di dalam stasiun.</b><br>Segera keluarkan wadah agar pintu bisa menutup, atau coba lagi.</div>'
+    : '';
+}
+
+function setAlert(st) {
+  // Peringatan lebih dari 10 menit dianggap basi (mis. perangkat mati saat peringatan aktif).
+  const fresh = !!st &&
+    st.door_alert === 'blocked' &&
+    !!st.door_alert_at &&
+    Date.now() - new Date(st.door_alert_at).getTime() < 600000;
+
+  const changed = S.alert !== fresh;
+  S.alert = fresh;
+
+  if (changed && ['dash', 'ret', 'err'].includes(S.view)) {
+    show(S.view, S.msg, true);
+  }
+}
+
+async function watchStation(code) {
+  const c = String(code || '').trim().toUpperCase();
+  if (!c) return;
+
+  S.stCode = c;
+  unsub('st');
+
+  S.ch.st = sub('st-' + c, 'stations', `station_code=eq.${c}`, pl => {
+    if (S.stCode === c) setAlert(pl.new);
+  });
+
+  try {
+    const st = await ok(
+      sb.from('stations')
+        .select('door_alert,door_alert_at')
+        .eq('station_code', c)
+        .maybeSingle()
+    );
+
+    if (S.stCode === c) setAlert(st);
+  } catch {
+    // Tanpa banner pun transaksi tetap berjalan.
   }
 }
 
