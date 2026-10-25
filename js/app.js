@@ -55,7 +55,9 @@ function reasonText(r) {
     no_stock: 'Wadah di stasiun sedang habis',
     no_loan: 'Anda tidak memiliki wadah yang sedang dipinjam',
     profile_incomplete: 'Profil belum lengkap. Hubungi petugas kampus.',
-    session_expired: 'Sesi stasiun berakhir. Scan QR ulang'
+    session_expired: 'Sesi stasiun berakhir. Scan QR ulang',
+    not_removed: 'Wadah tidak diambil dalam batas waktu. Peminjaman dibatalkan, silakan coba lagi',
+    removal_in_progress: 'Peminjaman sedang menunggu wadah diambil. Ambil wadah dari stasiun'
   })[r.reason] || 'Terjadi kesalahan pada stasiun';
 }
 
@@ -500,7 +502,15 @@ async function onTx(t) {
 }
 
 function fail(reason, weight) {
-  show('err', reasonText({reason, weight}));
+  let text = reasonText({reason, weight});
+
+  // Pengembalian yang ditolak sensor: pintu stasiun tetap terbuka sampai wadah
+  // dikeluarkan atau diletakkan dengan benar.
+  if (S.kind === 'ret' && ['not_registered', 'not_owner', 'weight', 'sensor'].includes(reason)) {
+    text += '. Pintu tetap terbuka: keluarkan wadah dari stasiun, atau letakkan wadah yang benar lalu coba lagi';
+  }
+
+  show('err', text);
 }
 
 function startWait() {
