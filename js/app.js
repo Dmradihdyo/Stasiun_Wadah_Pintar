@@ -10,7 +10,7 @@ const okMail = e => ALLOWED_DOMAINS.some(d => (e || '').toLowerCase().endsWith('
 
 const S = {
   u: null, p: null,
-  cfg: {maxLoan: 2, weightMin: 180, weightMax: 220, loanDays: 3},
+  cfg: {maxLoan: 2, weightMin: 80, weightMax: 120, loanDays: 3},
   loans: [], sess: null, last: '', view: '', msg: '',
   kind: 'borrow', rid: '', tx: null, done: false, w: 0,
   hb: 0, wt: 0, poll: 0, tm: [], ch: {}, token: '', stream: null
@@ -529,7 +529,7 @@ function cancelTx() {
 /* ---------- Data pengguna ---------- */
 
 async function loadConfig() {
-  S.cfg = {maxLoan: 2, weightMin: 180, weightMax: 220, loanDays: 3};
+  S.cfg = {maxLoan: 2, weightMin: 80, weightMax: 120, loanDays: 3};
 }
 
 async function loadLoans() {
