@@ -101,3 +101,192 @@ th{color:var(--mute);font-weight:600}
 .tr{display:flex;align-items:center;gap:8px}
 .ibtn{width:40px;padding:0;justify-content:center}.ibtn svg{width:20px;height:20px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* =====================================================================
+   LAYAR PENGGUNA (.scr)
+   Hanya berlaku untuk layar aplikasi pengguna. Header (.tb), intro (#splash),
+   dan panel admin (.adm) tidak terpengaruh karena semua aturan di bawah
+   diawali .scr.
+   ===================================================================== */
+
+:root{--scr-ink2:#3C4043;--scr-tint:#F1F5FE;--scr-grid:rgba(26,115,232,.07);--scr-shadow:0 1px 2px rgba(60,64,67,.06),0 8px 28px -12px rgba(60,64,67,.22)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--scr-ink2:#BDC1C6;--scr-tint:#232A36;--scr-grid:rgba(138,180,248,.06);--scr-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6)}}
+:root[data-theme="dark"]{--scr-ink2:#BDC1C6;--scr-tint:#232A36;--scr-grid:rgba(138,180,248,.06);--scr-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6)}
+
+.scr{box-shadow:var(--scr-shadow);text-align:left}
+.scr h1{font-size:clamp(28px,6vw,38px);letter-spacing:-.025em;line-height:1.08}
+.scr h2{font-size:clamp(23px,4.6vw,30px);letter-spacing:-.02em;line-height:1.12}
+.scr h3{font-size:15px;letter-spacing:.01em}
+.scr .eyebrow{font:700 12px/1 "Plus Jakarta Sans",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin-bottom:10px}
+.scr .lead{color:var(--mute);margin-top:10px;font-size:15.5px;line-height:1.55;max-width:46ch}
+.scr .center{text-align:center}.scr .center .lead{margin-left:auto;margin-right:auto}
+.scr .pb{min-height:54px;border-radius:16px;font-size:16px;letter-spacing:.005em}
+.scr .pb:not(.alt):not(:disabled){box-shadow:0 1px 0 rgba(255,255,255,.18) inset,0 6px 16px -8px var(--acc)}
+.scr .pb:not(:disabled):active{transform:translateY(1px) scale(.995)}
+.scr .pb.alt{border-color:var(--line);color:var(--ink)}
+.scr .pb.alt:hover{border-color:var(--acc);color:var(--acc)}
+.scr .pb.inl{min-height:50px;border-radius:14px}
+.scr .alert{border-radius:14px;border:1px solid color-mix(in srgb,var(--r) 22%,transparent);line-height:1.5}
+.scr .link{display:inline-flex;align-items:center;gap:8px;margin-top:18px;padding:6px 2px;border:0;background:none;color:var(--mute);font:600 14px "Plus Jakarta Sans",sans-serif;cursor:pointer;border-bottom:1px dashed currentColor}
+.scr .link:hover{color:var(--acc)}
+.scr .link svg{width:17px;height:17px}
+
+/* ---------- Ikon status (berhasil, galat, menunggu) ---------- */
+.scr .ic{width:76px;height:76px;border-radius:24px}
+.scr .ic svg{width:38px;height:38px;stroke-width:2.6}
+.scr.v-ok .ic{box-shadow:0 10px 24px -10px var(--g)}
+
+/* ---------- Masuk ---------- */
+.scr.v-login{padding-top:40px;overflow:hidden;position:relative}
+.scr.v-login:before{content:"";position:absolute;inset:0 0 auto 0;height:260px;background:
+  radial-gradient(120% 90% at 100% 0,var(--accSoft) 0,transparent 60%),
+  linear-gradient(var(--scr-grid) 1px,transparent 1px) 0 0/22px 22px,
+  linear-gradient(90deg,var(--scr-grid) 1px,transparent 1px) 0 0/22px 22px;
+  -webkit-mask:linear-gradient(#000,transparent);mask:linear-gradient(#000,transparent);pointer-events:none}
+.scr .hero{position:relative}
+.scr .hero .lg{width:64px;height:64px;margin:0 0 22px}
+.scr .how{list-style:none;padding:0;margin:26px 0 6px;display:grid;gap:2px;border-top:1px solid var(--line)}
+.scr .how li{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);font-weight:500;color:var(--scr-ink2)}
+.scr .how b{flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:var(--accSoft);color:var(--acc);font:700 13px Outfit,sans-serif}
+.scr .gbtn{gap:12px;margin-top:22px;background:var(--surf);color:var(--ink);border:1px solid var(--line);box-shadow:var(--scr-shadow)!important}
+.scr .gbtn svg{width:20px;height:20px;flex:none}
+.scr .gbtn:hover{border-color:var(--acc)}
+.scr .fine{margin-top:12px;font-size:13px;color:var(--mute);text-align:center}
+.scr .fine b{color:var(--ink);font-weight:600}
+
+/* ---------- NIM ---------- */
+.scr .big-in{min-height:58px;font:600 22px Outfit,sans-serif;letter-spacing:.06em;border-radius:14px;padding:0 16px}
+.scr input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 4px var(--accSoft)}
+
+/* ---------- Menunggu ---------- */
+.scr .spin{width:58px;height:58px;margin:8px auto 22px;border-radius:50%;border:4px solid var(--accSoft);border-top-color:var(--acc);animation:scr-spin .9s linear infinite}
+@keyframes scr-spin{to{transform:rotate(360deg)}}
+
+/* ---------- Scan QR ---------- */
+.scr .view{width:min(100%,320px);margin:24px auto 6px;border-radius:28px;background:#0F1115}
+.scr .view:before{display:none}
+.scr .view .corners{position:absolute;inset:18px;z-index:2;pointer-events:none;
+  background:
+    linear-gradient(var(--acc),var(--acc)) 0 0/34px 4px,linear-gradient(var(--acc),var(--acc)) 0 0/4px 34px,
+    linear-gradient(var(--acc),var(--acc)) 100% 0/34px 4px,linear-gradient(var(--acc),var(--acc)) 100% 0/4px 34px,
+    linear-gradient(var(--acc),var(--acc)) 0 100%/34px 4px,linear-gradient(var(--acc),var(--acc)) 0 100%/4px 34px,
+    linear-gradient(var(--acc),var(--acc)) 100% 100%/34px 4px,linear-gradient(var(--acc),var(--acc)) 100% 100%/4px 34px;
+  background-repeat:no-repeat;border-radius:10px}
+.scr .view i{left:22px;right:22px;height:2px;background:var(--acc);box-shadow:0 0 14px 2px var(--acc);opacity:.85}
+.scr .or{display:flex;align-items:center;gap:12px;margin:22px 0 4px;color:var(--mute);font-size:13px;font-weight:600}
+.scr .or:before,.scr .or:after{content:"";flex:1;height:1px;background:var(--line)}
+.scr .code-row{margin-top:10px}
+.scr .code-row input{min-height:50px;border-radius:14px;font:600 17px Outfit,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.scr.v-scan .link{display:flex;margin:18px auto 0}
+
+/* ---------- Dashboard ---------- */
+#app[data-v=dash]{max-width:1040px}
+.scr.v-dash{padding:34px}
+.scr .dash .col{min-width:0}
+.scr .greet{margin-bottom:20px}
+.scr .stn-chip{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;border:1px dashed var(--line);background:var(--s2);margin-top:12px}
+.scr .stn-chip.on{border-style:solid;border-color:color-mix(in srgb,var(--g) 40%,var(--line));background:var(--gSoft)}
+.scr .stn-chip b{display:block;font-size:15px}
+.scr .stn-chip span:not(.pulse){display:block;font-size:13px;color:var(--mute);margin-top:2px}
+.scr .pulse{flex:none;width:12px;height:12px;border-radius:50%;background:var(--g);box-shadow:0 0 0 0 color-mix(in srgb,var(--g) 60%,transparent);animation:scr-pulse 1.8s ease-out infinite}
+.scr .pulse.off{background:var(--mute);animation:none;opacity:.5}
+@keyframes scr-pulse{70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+.scr .acts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.scr .act{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:148px;padding:18px;border-radius:20px;border:1px solid var(--line);background:var(--surf);color:var(--ink);text-align:left;cursor:pointer;font-family:"Plus Jakarta Sans",sans-serif;transition:transform .18s,border-color .18s,box-shadow .18s}
+.scr .act svg{width:30px;height:30px;margin-bottom:auto;stroke-width:2.2}
+.scr .act b{font:600 19px Outfit,sans-serif;letter-spacing:-.01em;margin-top:18px}
+.scr .act span{font-size:13px;color:var(--mute)}
+.scr .act-out{background:var(--acc);border-color:var(--acc);color:var(--accInk)}
+.scr .act-out span{color:inherit;opacity:.82}
+.scr .act-out:after{content:"";position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;border:16px solid currentColor;opacity:.09}
+.scr .act-in svg{color:var(--acc)}
+.scr .act:not(:disabled):hover{transform:translateY(-2px);box-shadow:var(--scr-shadow)}
+.scr .act-in:not(:disabled):hover{border-color:var(--acc)}
+.scr .act:disabled{cursor:not-allowed;background:var(--s2);border-color:var(--line);color:var(--mute);box-shadow:none}
+.scr .act:disabled svg{color:var(--mute)}
+.scr .act:disabled:after{display:none}
+.scr .scan-cta{gap:10px;margin-top:14px}
+.scr .scan-cta svg{width:21px;height:21px}
+.scr .link.end{margin-top:20px}
+
+.scr .quota{padding:20px;border-radius:20px;background:var(--scr-tint);border:1px solid var(--line)}
+.scr .quota-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.scr .quota .eyebrow{color:var(--mute);margin-bottom:6px}
+.scr .quota-n{display:flex;align-items:baseline;gap:8px}
+.scr .quota-n b{font:700 46px/1 Outfit,sans-serif;letter-spacing:-.04em}
+.scr .quota-n span{color:var(--mute);font-weight:600}
+.scr .quota-who{text-align:right;font-weight:600;font-size:14px;line-height:1.35;max-width:55%;overflow-wrap:anywhere}
+.scr .quota-who span{font-weight:500;font-size:12.5px;color:var(--mute)}
+.scr .slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-top:16px}
+.scr .slt{height:74px;border-radius:14px;border:2px dashed var(--line);display:grid;place-items:center;color:var(--acc);background:transparent}
+.scr .slt svg{width:52px;height:auto}
+.scr .slt.on{border:2px solid var(--acc);background:var(--surf);animation:scr-drop .45s cubic-bezier(.2,.9,.3,1.3) both}
+.scr .slt.on:nth-child(2){animation-delay:.08s}.scr .slt.on:nth-child(3){animation-delay:.16s}
+@keyframes scr-drop{from{transform:translateY(-8px);opacity:0}}
+
+.scr .list-h{margin:26px 0 10px;color:var(--mute);text-transform:uppercase;font-family:"Plus Jakarta Sans",sans-serif;font-size:12px;font-weight:700;letter-spacing:.12em}
+.scr .loans{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.scr .loan{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surf)}
+.scr .loan-ic{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--accSoft);color:var(--acc)}
+.scr .loan-ic svg{width:28px;height:auto}
+.scr .loan div{flex:1;min-width:0}
+.scr .loan b{display:block;font-size:15px}
+.scr .loan div span{display:block;font-size:13px;color:var(--mute)}
+.scr .tag{flex:none;font-style:normal;font-size:11.5px;font-weight:700;letter-spacing:.04em;padding:4px 10px;border-radius:99px;background:var(--gSoft);color:var(--g)}
+.scr .tag.late{background:var(--rSoft);color:var(--r)}
+.scr .empty{padding:22px 18px;border:1px dashed var(--line);border-radius:16px;color:var(--ink);font-weight:600;text-align:center;line-height:1.5}
+.scr .empty span{font-weight:500;font-size:13px;color:var(--mute)}
+
+@media(min-width:960px){.scr .dash{grid-template-columns:1.1fr .9fr;gap:44px}}
+
+/* ---------- Pinjam / kembalikan (menunggu stasiun) ---------- */
+.scr .slot{position:relative;overflow:hidden;width:100%;max-width:340px;height:150px;margin:24px auto 8px;border-radius:22px;border:2px dashed color-mix(in srgb,var(--acc) 55%,var(--line));background:
+  linear-gradient(var(--scr-grid) 1px,transparent 1px) 0 0/18px 18px,
+  linear-gradient(90deg,var(--scr-grid) 1px,transparent 1px) 0 0/18px 18px,var(--scr-tint)}
+.scr .slot svg{width:104px;height:auto;animation:scr-bob 2.4s ease-in-out infinite}
+@keyframes scr-bob{50%{transform:translateY(-5px)}}
+.scr .scanline{position:absolute;left:0;right:0;top:0;height:46px;background:linear-gradient(transparent,color-mix(in srgb,var(--acc) 22%,transparent));border-bottom:2px solid var(--acc);animation:scr-scan 2.2s ease-in-out infinite}
+@keyframes scr-scan{0%{transform:translateY(-50px)}100%{transform:translateY(150px)}}
+
+.scr .steps{list-style:none;padding:0;margin:18px 0 4px;position:relative}
+.scr .steps li{position:relative;display:flex;align-items:center;gap:14px;padding:9px 0;font-size:14.5px;color:var(--mute)}
+.scr .steps li:not(:last-child):after{content:"";position:absolute;left:10px;top:30px;bottom:-9px;width:2px;background:var(--line)}
+.scr .steps .dot{position:relative;z-index:1;flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:var(--surf)}
+.scr .steps .done{color:var(--ink)}
+.scr .steps .done .dot{border-color:var(--g);background:var(--g)}
+.scr .steps .done .dot:after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid var(--gInk);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.scr .steps .done:not(:last-child):after{background:var(--g)}
+.scr .steps .now{color:var(--ink);font-weight:600}
+.scr .steps .now .dot{border-color:var(--acc);box-shadow:0 0 0 4px var(--accSoft)}
+.scr .steps .now .dot:after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--acc);animation:scr-blink 1.1s ease-in-out infinite}
+@keyframes scr-blink{50%{opacity:.25}}
+
+/* ---------- Verifikasi pengembalian ---------- */
+.scr.v-verify .chk{border-radius:14px;padding:14px 16px;font-size:14.5px;margin-top:10px}
+.scr.v-verify .chk:first-of-type{margin-top:22px}
+.scr .bar{height:4px;margin-top:22px}
+
+/* ---------- Hasil ---------- */
+.scr.v-ok,.scr.v-err,.scr.v-busy,.scr.v-timeout{background:var(--surf)}
+.scr.v-ok{border-top:6px solid var(--g)}
+.scr.v-err{border-top:6px solid var(--r)}
+.scr.v-busy,.scr.v-timeout{border-top:6px solid var(--yInk)}
+.scr.v-ok .ic{background:var(--g);color:var(--gInk)}
+.scr.v-err .ic{background:var(--rSoft)}
+.scr.v-busy .ic,.scr.v-timeout .ic{background:var(--ySoft)}
+.scr .receipt{margin:24px 0 6px;padding:6px 18px;border-radius:16px;background:var(--s2);border:1px dashed var(--line);font-size:14.5px}
+.scr .receipt div{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px dashed var(--line)}
+.scr .receipt div:last-child{border-bottom:0}
+.scr .receipt span{color:var(--mute)}
+.scr .receipt b{font-weight:600;text-align:right}
+
+/* ---------- Ponsel ---------- */
+@media(max-width:639px){
+  .scr,.scr.v-dash{padding:0;box-shadow:none}
+  .scr.v-ok,.scr.v-err,.scr.v-busy,.scr.v-timeout{padding:24px 18px;border:1px solid var(--line);border-top-width:6px;border-radius:22px}
+  .scr .act{min-height:132px;padding:16px}
+  .scr .act b{font-size:17px}
+  .scr .quota-n b{font-size:40px}
+}
+@media(max-width:380px){.scr .acts{grid-template-columns:1fr}.scr .act{min-height:0;flex-direction:row;align-items:center;flex-wrap:wrap}.scr .act svg{margin:0 6px 0 0}.scr .act b{margin-top:0}.scr .act span{width:100%}}
