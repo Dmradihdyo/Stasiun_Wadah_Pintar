@@ -1,113 +1,120 @@
-# Stasiun Wadah Pintar: Web App (Supabase)
+# Smart-Loopbox / Stasiun Wadah Pintar
 
-Web App untuk pinjam dan kembalikan wadah makan di kampus: login Google, scan QR stasiun, pinjam, kembalikan, status, riwayat, dan panel admin. Mengikuti **Rangkuman Final** (ESP32 + RFID + Load Cell + Supabase + Google OAuth 2.0). Firebase sudah dihapus seluruhnya.
+Stasiun peminjaman dan pengembalian wadah makan pakai ulang untuk mahasiswa dan staf Universitas Trisakti. Pengguna login dengan akun kampus, scan QR di stasiun, lalu memilih pinjam atau kembalikan. Stasiun membaca tag RFID dan berat wadah, server memutuskan hasilnya, dan pintu terbuka atau tertutup otomatis.
 
-Frontend: HTML, CSS, dan JavaScript tanpa proses build. Backend: Supabase (PostgreSQL, Auth, RLS, Realtime, Edge Functions).
+Proyek PKM-KC. Status: **prototipe yang sudah berjalan** (web, backend, dan perangkat keras terhubung).
 
-## Struktur proyek
+**Demo web:** https://dmradihdyo.github.io/Stasiun_Wadah_Pintar/
 
-```
-index.html                      halaman tunggal (SPA)
-css/app.css
-assets/logo.png
-js/
-  config.js                     URL + anon key Supabase, domain kampus   <- ISI INI
-  supabase.js                   klien Supabase
-  app.js                        aplikasi pengguna (login, QR, pinjam, kembali, status)
-  admin.js                      panel admin
-supabase/
-  migrations/
-    ..._schema.sql              tabel + pembatasan akun kampus
-    ..._functions.sql           logika transaksi atomik (sesi, kuota, validasi sensor)
-    ..._rls.sql                 RLS, hak akses, Realtime
-  functions/
-    device-api/                 endpoint ESP32 (autentikasi per-alat)
-    send-reminders/             pengingat email harian
-docs/protokol-esp32.md          kontrak API untuk firmware
-tools/simulate-device.mjs       pengganti ESP32 untuk uji end-to-end
+## Cara kerja
+
+```mermaid
+flowchart LR
+  W["Web<br/>(pengguna)"] -- "login, sesi, transaksi" --> S[("Supabase<br/>Postgres + RLS")]
+  S -- "Realtime" --> W
+  E["ESP32 di stasiun<br/>RFID, timbangan, servo, buzzer"] -- "event + poll" --> F["Edge Function<br/>super-processor"]
+  F -- "keputusan transaksi" --> S
+  F -- "perintah" --> E
 ```
 
-## Kesesuaian dengan rangkuman final
+Prinsipnya: **sensor hanya melapor, server yang memutuskan.** ESP32 tidak memegang kunci database. Ia hanya memakai token perangkat, dan semua perubahan data transaksi dilakukan fungsi database yang bersifat atomik.
 
-| Rangkuman | Implementasi |
+### Alur pengguna
+1. Login Google dengan akun `@trisakti.ac.id`, lalu scan QR stasiun atau ketik kodenya. Server membuka sesi (satu stasiun hanya bisa punya satu sesi aktif).
+2. Pilih **Pinjam** atau **Kembalikan**. Server mencatat transaksi berstatus menunggu.
+3. ESP32 menanyakan perintah ke server secara berkala (10 detik saat idle, 3 detik saat ada sesi), sekaligus menandai dirinya hidup.
+
+### Pinjam
+1. Stasiun membaca tag RFID dan menimbang wadah di dalam stasiun.
+2. Server memeriksa tag terdaftar, wadah tersedia, kuota belum penuh, dan berat dalam rentang.
+3. Jika lolos, pintu terbuka dan stasiun menunggu timbangan kosong. Pinjaman baru dicatat setelah wadah terbukti diambil, lalu pintu menutup.
+4. Wadah tidak diambil dalam 30 detik: pintu menutup dan peminjaman dibatalkan tanpa pinjaman.
+
+### Kembalikan
+1. Pintu terbuka saat transaksi menunggu. Pengguna meletakkan wadah di tatakan.
+2. Server memeriksa wadah itu memang pinjaman pengguna dan beratnya dalam rentang.
+3. Diterima: pintu menutup. Ditolak (berat atau tag salah): pintu **tetap terbuka**.
+4. Batal atau gagal: pintu menutup hanya bila timbangan kosong dan tidak ada tag di dekat pembaca. Jika masih ada wadah, buzzer mengingatkan dan web menampilkan banner.
+
+Buzzer: dua bunyi pendek = diterima, satu panjang = ditolak, tiga pendek = masih ada wadah di stasiun.
+
+## Aturan sistem
+
+| Aturan | Nilai bawaan |
 |---|---|
-| Google OAuth 2.0 + OIDC via Supabase Auth | `signInWithOAuth('google')`, alur PKCE |
-| Akun kampus divalidasi di **backend** | trigger `enforce_campus_email` pada `auth.users` menolak domain lain; domain bisa diubah di Admin > Pengaturan |
-| Tabel `profiles, containers, transactions, loans, stations, station_sessions, device_events` | persis di migrasi 1 (+ `app_config`, `devices`) |
-| RLS | migrasi 3; pengguna hanya melihat data sendiri; kode wadah hanya admin; `role`/`locked` tidak bisa diubah dari browser |
-| Satu stasiun, satu sesi aktif, pembuatan **atomik** | `start_session` mengunci baris stasiun + unique index parsial `station_sessions_one_active` |
-| Kuota, pinjaman ganda, wadah sesuai pinjaman | dicek di `request_transaction` (saat diminta) dan `device_report` (saat sensor melapor) |
-| ID transaksi unik, permintaan ulang aman | `transactions.request_id` unik; fungsi idempoten, laporan ulang dari ESP32 tidak dicatat dua kali |
-| Backend menentukan status, bukan sensor | hanya `device_report` yang bisa menandai `success`/`failed` |
-| Sesi lepas saat selesai/batal/kedaluwarsa | `end_session`, `cancel_transaction`, `expire_stale`; heartbeat web 15 dtk, kedaluwarsa 60 dtk |
-| Autentikasi perangkat terpisah, tanpa `service_role` di ESP32 | kunci alat per stasiun (hash SHA-256 di tabel `devices`), dipakai lewat Edge Function |
-| Realtime + cadangan | Realtime pada `transactions, loans, profiles, station_sessions`; polling 3 dtk jika Realtime putus |
-| Koneksi putus | web memeriksa status transaksi; ESP32 mengirim ulang `report` dengan `request_id` sama |
+| Kuota pinjam | 2 wadah per pengguna |
+| Berat wadah valid | 80-120 g (pinjam dan kembalikan) |
+| Ambang timbangan kosong | 8 g |
+| Masa sesi web | 60 detik, diperpanjang tiap 15 detik selama web terbuka |
+| Stasiun dianggap hidup | terlihat dalam 90 detik terakhir |
+| Batas waktu mengambil wadah (pinjam) | 30 detik |
+| Akun yang boleh masuk | domain `@trisakti.ac.id` (dibatasi di web dan database) |
 
-## Pemasangan
+Rentang berat, kuota, dan ambang dapat disesuaikan di firmware dan fungsi database.
 
-1. **Proyek Supabase**: buat di https://supabase.com. Catat *Project URL* dan *anon key* (Project Settings > API), isi `js/config.js`.
-2. **Database**: jalankan tiga berkas di `supabase/migrations/` **berurutan** lewat SQL Editor, atau `supabase link` lalu `supabase db push`.
-3. **Google OAuth**:
-   - Google Cloud Console > APIs & Services > Credentials > *OAuth client ID* (Web application). Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`.
-   - Supabase > Authentication > Providers > Google: aktifkan, isi Client ID dan Secret.
-   - Supabase > Authentication > URL Configuration: *Site URL* = alamat web Anda; tambahkan alamat yang sama (dan `http://localhost:8080` untuk uji lokal) ke *Redirect URLs*.
-4. **Domain kampus**: awalnya `trisakti.ac.id` dan `std.trisakti.ac.id`. Ubah di Admin > Pengaturan, atau `update app_config set allowed_domains = array[...]`. Samakan `ALLOWED_DOMAINS` di `js/config.js` (hanya untuk pesan ramah; penegakannya di database). Dokumen lama menyebut `trisakti.id`, pastikan domain yang benar.
-5. **Edge Functions** (Supabase CLI):
-   ```
-   supabase functions deploy device-api --no-verify-jwt
-   supabase functions deploy send-reminders --no-verify-jwt
-   supabase secrets set CRON_SECRET=<acak panjang> RESEND_API_KEY=<kunci> MAIL_FROM="Wadah Pintar <noreply@domain-anda>"
-   ```
-   `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` disediakan otomatis untuk fungsi dan tidak pernah dikirim ke browser atau ESP32.
-6. **Hosting** (harus HTTPS karena kamera dan login Google): unggah folder ini ke hosting statis (Netlify, Cloudflare Pages, Vercel, GitHub Pages). Tidak perlu build. Uji lokal: `python3 -m http.server 8080`.
-7. **Admin pertama**: login sekali, isi NIM, lalu di SQL Editor:
-   ```sql
-   update public.profiles set role = 'admin' where email = 'email-anda@trisakti.ac.id';
-   ```
-   Muat ulang; tombol **Admin** muncul.
-8. **Di panel Admin**: tambah **Stasiun** (mis. `ST-01`), cetak QR-nya, **Buat kunci alat** (tampil sekali, simpan di firmware), lalu tambah **Wadah** (kode unik + UID tag RFID).
+## Teknologi
 
-### Pengingat email (opsional)
-
-Jadwalkan di SQL Editor (aktifkan ekstensi `pg_cron` dan `pg_net` dulu). 01:00 UTC = 08:00 WIB:
-```sql
-select cron.schedule('pengingat-wadah', '0 1 * * *', $$
-  select net.http_post(
-    url := 'https://<project-ref>.supabase.co/functions/v1/send-reminders',
-    headers := jsonb_build_object('Authorization', 'Bearer <CRON_SECRET>')
-  )
-$$);
-```
-Email dikirim lewat Resend. Untuk mengirim ke domain kampus, domain pengirim Anda perlu diverifikasi di Resend; atau ganti fungsi `sendMail` dengan SMTP/penyedia lain.
-
-## Uji tanpa perangkat keras
-
-Tidak ada mode demo di website. Untuk menguji seluruh alur sebelum ESP32 siap, jalankan pengganti alat dari komputer (Node 18+):
-```
-DEVICE_URL=https://<project-ref>.supabase.co/functions/v1/device-api DEVICE_KEY=<kunci alat> node tools/simulate-device.mjs
-```
-Dari HP: login, scan QR stasiun, tekan Pinjam/Kembalikan. Skrip menanyakan UID tag dan berat, lalu melapor ke backend yang sama dengan yang dipakai firmware asli.
-
-## Model data
-
-| Tabel | Isi |
+| Bagian | Teknologi |
 |---|---|
-| `profiles` | id (= auth uid), email, full_name, nim, role (`user`/`admin`), locked |
-| `containers` | code (unik, hanya admin), rfid_uid (unik), status (`available`/`borrowed`/`maintenance`) |
-| `stations` | code (isi QR), name, status |
-| `station_sessions` | station, user, status (`active`/`completed`/`cancelled`/`expired`), expires_at |
-| `transactions` | request_id (unik), session, station, user, container, type, status (`pending`/`success`/`failed`/`cancelled`/`expired`), reason, weight |
-| `loans` | user, container, borrowed_at, due_at, returned_at, penanda email |
-| `device_events` | log diagnostik dari alat |
-| `devices` | satu kunci (hash) per stasiun, last_seen |
-| `app_config` | max_loan (2), weight_min/max (180/220), loan_days (3), session_seconds (60), allowed_domains |
+| Web | HTML, CSS, JavaScript tanpa proses build; supabase-js, jsQR, qrcodejs dari CDN; GitHub Pages |
+| Backend | Supabase: Auth (Google OAuth), PostgreSQL, Row Level Security, Realtime, `pg_cron` |
+| API perangkat | Supabase Edge Function `super-processor` (TypeScript / Deno) |
+| Firmware | Arduino C++ untuk ESP32; library MFRC522, HX711, ESP32Servo |
 
-## Yang perlu Anda putuskan atau periksa
+### Perangkat keras
 
-- **Lama peminjaman** (`loan_days`, awalnya 3 hari) belum ada di dokumen; ubah di Pengaturan.
-- **Berat wadah** 180-220 g berasal dari aturan awal; rangkuman menyatakan rentang final ditentukan dari kalibrasi wadah nyata.
-- **Masa sesi** 60 detik tanpa denyut web. Jika jaringan kampus sering putus, naikkan `session_seconds`.
-- **Beberapa wadah, satu stasiun**: model saat ini tidak mengikat wadah ke stasiun tertentu. Jika tiap stasiun punya stok sendiri, tambahkan `station_id` pada `containers` (dicatat sebagai perluasan; belum ada di rangkuman).
-- Rangkuman menyebut tabel sebagai **rancangan awal**: tambah/ubah kolom lewat migrasi baru, jangan ubah tiga berkas yang sudah dijalankan.
-- Firmware ESP32 (Tahap 1 dan 3) belum termasuk; kontrak API ada di `docs/protokol-esp32.md`.
+| Komponen | Pin ESP32 |
+|---|---|
+| RFID RC522 | SS 5, RST 22, SCK 18, MOSI 23, MISO 19 |
+| Load cell dengan HX711 | DOUT 4, SCK 16 |
+| Servo pintu (continuous) | 21 |
+| Buzzer aktif | 27 |
+
+### Data
+
+Tabel utama: `profiles`, `containers`, `stations`, `station_sessions`, `transactions`, `loans`, `device_events`. Perubahan transaksi, pinjaman, dan status wadah dilakukan dalam satu transaksi database oleh fungsi `security definer`; browser hanya boleh membaca data miliknya sendiri lewat RLS.
+
+## Keamanan
+
+- Kunci rahasia Supabase tidak ada di web maupun firmware. Web hanya memuat *publishable key* yang memang aman dipublikasikan karena akses dibatasi RLS.
+- ESP32 diautentikasi dengan token perangkat terpisah (header `x-device-token`), yang disimpan sebagai secret Edge Function dan di berkas `secrets.h` lokal (tidak di-commit).
+- Event sensor tidak otomatis menjadi transaksi sah. Server memeriksa sesi aktif, pemilik pinjaman, status wadah, kuota, dan berat.
+- Transaksi memakai kunci idempotensi, sehingga permintaan ulang tidak tercatat dua kali.
+
+## Status pengujian
+
+Diuji pada prototipe stasiun SLB-001:
+
+- Event ESP32 sampai ke Edge Function dan tersimpan di database dengan identitas stasiun.
+- Status hidup/mati stasiun mengikuti waktu terakhir perangkat terlihat; Wi-Fi putus tersambung ulang sendiri.
+- Sesi stasiun: satu pengguna per stasiun, sesi kedaluwarsa, stasiun mati ditolak.
+- Pinjam dan kembalikan diputuskan server; berat di luar rentang, wadah bukan milik pengguna, dan wadah tidak tersedia ditolak.
+- Buzzer, servo, dan alur pintu mengikuti transaksi, termasuk pintu yang tetap terbuka saat pengembalian ditolak.
+
+## Batasan yang diketahui
+
+- Servo continuous tidak punya sensor posisi pintu, sehingga posisi pintu hanya perkiraan.
+- Satu permintaan HTTPS dari ESP32 memakan sekitar 2 detik, jadi respons pintu bisa terlambat beberapa detik.
+- Firmware belum memvalidasi sertifikat TLS (`setInsecure`). Perlu diganti sebelum dipakai di luar prototipe.
+- Tabel pinjaman belum punya tanggal jatuh tempo, jadi fitur terlambat dan pengingat email belum ada.
+- Panel admin (`js/admin.js`) masih untuk rancangan skema awal dan belum sesuai database yang dipakai sekarang.
+
+## Isi repositori ini
+
+| Jalur | Keterangan |
+|---|---|
+| `index.html`, `css/`, `js/app.js`, `js/supabase.js`, `js/config.js`, `assets/` | Aplikasi web yang dipakai |
+| `js/admin.js` | Panel admin dari rancangan awal, belum disesuaikan |
+| `supabase/`, `docs/`, `tools/` | Rancangan backend awal (`device-api`, migrasi, simulator ESP32). **Tidak dipakai** oleh sistem final |
+
+Firmware ESP32, skrip SQL backend, dan Edge Function `super-processor` yang dipakai sistem final berada di folder proyek lokal dan belum disertakan di repositori ini.
+
+## Menjalankan web
+
+Web bersifat statis dan tidak perlu build.
+
+1. Isi `js/config.js` dengan URL proyek Supabase dan *publishable key*.
+2. Atur Google OAuth di Supabase (Authentication, Providers) dan tambahkan alamat web ke *Redirect URLs*.
+3. Jalankan server statis, misalnya `python -m http.server 8080`, atau unggah ke GitHub Pages. Login Google dan kamera membutuhkan HTTPS (atau `localhost`).
+
+QR stasiun berisi alamat web dengan kode stasiun, contoh: `https://dmradihdyo.github.io/Stasiun_Wadah_Pintar/?station=SLB-001`.
