@@ -90,43 +90,51 @@ const STN_ERR = {
 
 /* ---------- Tampilan ---------- */
 
-// Baris langkah di layar transaksi. Status: done | now | todo.
-const steps = list => `<ol class="steps">${list.map(([t, st]) =>
-  `<li class="${st}"><span class="dot" aria-hidden="true"></span><span>${t}</span></li>`
+// Baris proses di layar transaksi, gaya struk printer. Status: done | now | todo.
+const log = list => `<ol class="log">${list.map(([t, st]) =>
+  `<li class="${st}"><span>${t}</span></li>`
 ).join('')}</ol>`;
 
-// Slot kuota: satu kotak per jatah wadah, terisi = sedang dipinjam.
-const slots = (n, max) => `<div class="slots" role="img" aria-label="${n} dari ${max} wadah dipinjam">${
-  Array.from({length: max}, (_, k) => `<span class="slt${k < n ? ' on' : ''}">${k < n ? LB : ''}</span>`).join('')
-}</div>`;
+const nowStr = () => new Date().toLocaleString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+
+// Hasil transaksi: cap singkat, judul, dan penjelasan. kind: good | bad | wait.
+const verdict = (kind, stamp, title, text) => `
+  <div class="verdict">
+    <span class="stamp ${kind}">${stamp}</span>
+    <h2>${title}</h2>
+    ${text ? `<p class="lead">${text}</p>` : ''}
+  </div>`;
 
 const V = {
   login: () => `
-    <div class="hero">
-      <img class="lg" src="assets/logo.png" alt="Logo Trisakti">
-      <p class="eyebrow">Universitas Trisakti</p>
-      <h1>Wadah makan pakai ulang,<br>tinggal ambil di stasiun.</h1>
-      <p class="lead">Pinjam dan kembalikan wadah makan tanpa antre. Kamu cukup scan QR, stasiun yang membuka pintunya.</p>
+    <div class="login">
+      <div class="login-main">
+        <div class="mark">
+          <img src="assets/logo.png" alt="Logo Universitas Trisakti">
+          <span>Universitas Trisakti</span>
+        </div>
+        <h1>Wadah makan pakai ulang. <mark>Ambil di stasiun</mark>, kembalikan di stasiun.</h1>
+        <p class="lead">Masuk dengan akun kampus, scan QR di stasiun, lalu pilih pinjam atau kembalikan. Pintunya terbuka sendiri.</p>
+        ${alertBox(S.msg)}
+        <button class="pb gbtn" data-a="login">${GLOGO}<span>Masuk dengan Google</span></button>
+        <p class="fine">Hanya untuk akun <b>@trisakti.ac.id</b></p>
+      </div>
+      <dl class="spec">
+        <div><dt>Batas pinjam</dt><dd>${S.cfg.maxLoan} wadah per orang</dd></div>
+        <div><dt>Pemeriksaan</dt><dd>Tag RFID dan berat ${S.cfg.weightMin}-${S.cfg.weightMax} g</dd></div>
+        <div><dt>Pintu</dt><dd>Buka dan tutup otomatis</dd></div>
+      </dl>
     </div>
-    <ol class="how">
-      <li><b>1</b><span>Scan QR di stasiun</span></li>
-      <li><b>2</b><span>Pilih pinjam atau kembalikan</span></li>
-      <li><b>3</b><span>Pintu terbuka, ambil atau taruh wadah</span></li>
-    </ol>
-    ${alertBox(S.msg)}
-    <button class="pb gbtn" data-a="login">${GLOGO}<span>Masuk dengan Google</span></button>
-    <p class="fine">Khusus akun kampus <b>@trisakti.ac.id</b></p>
   `,
 
   nim: () => `
-    <p class="eyebrow">Satu langkah lagi</p>
-    <h2>Masukkan NIM kamu</h2>
-    <p class="lead">Dipakai untuk mencatat pinjaman atas nama kamu.</p>
+    <h2>Masukkan NIM</h2>
+    <p class="lead">NIM dipakai untuk mencatat pinjaman atas namamu.</p>
     <label class="lbl">NIM
       <input id="nim" class="big-in" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="2021xxxxxx">
     </label>
     ${alertBox(S.msg)}
-    ${btn('savenim', 'Simpan dan lanjut')}
+    ${btn('savenim', 'Simpan')}
     ${btn('logout', 'Batal', 1)}
   `,
 
@@ -139,13 +147,12 @@ const V = {
   `,
 
   scan: () => `
-    <p class="eyebrow">Mulai di stasiun</p>
-    <h2>Arahkan kamera ke QR</h2>
-    <p class="lead">QR tertempel di bagian depan stasiun.</p>
-    <div class="view" aria-hidden="true"><video id="cam" playsinline muted></video><span class="corners"></span><i></i></div>
+    <h2>Scan QR di stasiun</h2>
+    <p class="lead">QR ada di bagian depan stasiun. Arahkan kamera sampai terbaca.</p>
+    <div class="view" aria-hidden="true"><video id="cam" playsinline muted></video><i></i></div>
     <div id="camerr" class="alert" hidden>Kamera tidak bisa dipakai. Ketik kode stasiun di bawah.</div>
     ${alertBox(S.msg)}
-    <p class="or"><span>atau ketik kode stasiun</span></p>
+    <p class="or">atau ketik kode stasiun</p>
     <div class="row code-row">
       <input id="sid" placeholder="SLB-001" aria-label="Kode stasiun" autocomplete="off" autocapitalize="characters">
       <button class="pb inl" data-a="manual">Buka</button>
@@ -154,11 +161,7 @@ const V = {
   `,
 
   busy: () => `
-    <div class="center">
-      ${ic('clock', 'w')}
-      <h2>Stasiun sedang dipakai</h2>
-      <p class="lead">Ada pengguna lain di stasiun ini. Tunggu sebentar sampai transaksinya selesai, lalu scan ulang.</p>
-    </div>
+    ${verdict('wait', 'Dipakai', 'Stasiun sedang dipakai', 'Ada pengguna lain di stasiun ini. Tunggu transaksinya selesai, lalu scan ulang.')}
     ${btn('again', 'Scan ulang')}
     ${btn('scan', 'Kembali', 1)}
   `,
@@ -167,7 +170,7 @@ const V = {
     const i = info();
     const on = !!S.sess;
     const name = esc(S.p.full_name || S.u?.email || 'Pengguna');
-    const first = esc(String(S.p.full_name || '').trim().split(/\s+/)[0] || 'kamu');
+    const idLine = esc(S.p.nim ? 'NIM ' + S.p.nim : (S.u?.email || ''));
     const left = S.cfg.maxLoan - i.n;
 
     const warn = i.late
@@ -176,131 +179,128 @@ const V = {
           ? '<div class="alert">Kuota kamu dikunci oleh petugas. Hubungi petugas kampus.</div>'
           : '');
 
-    const station = on
-      ? `<div class="stn-chip on"><span class="pulse" aria-hidden="true"></span><div><b>Terhubung ke ${esc(S.stCode || 'stasiun')}</b><span>Sesi aktif. Pilih aksi di bawah.</span></div></div>`
-      : `<div class="stn-chip"><span class="pulse off" aria-hidden="true"></span><div><b>Belum terhubung ke stasiun</b><span>Scan QR di stasiun untuk pinjam atau kembalikan.</span></div></div>`;
-
     const canBorrow = on && !i.locked && !i.full;
     const canReturn = on && i.n > 0;
 
     const borrowHint = !on ? 'Scan QR dulu'
       : i.locked ? 'Kuota dikunci'
       : i.full ? 'Kuota penuh'
-      : `Sisa ${left} wadah`;
+      : `Sisa jatah ${left}`;
 
     const returnHint = !on ? 'Scan QR dulu'
-      : i.n ? `${i.n} wadah di tangan kamu`
+      : i.n ? `${i.n} wadah di tanganmu`
       : 'Belum ada pinjaman';
 
-    const actions = `
-      <div class="acts">
-        <button class="act act-out" data-a="borrow"${canBorrow ? '' : ' disabled'}>
-          ${svg('out')}<b>Pinjam wadah</b><span>${borrowHint}</span>
-        </button>
-        <button class="act act-in" data-a="ret"${canReturn ? '' : ' disabled'}>
-          ${svg('inn')}<b>Kembalikan</b><span>${returnHint}</span>
-        </button>
-      </div>`;
+    const bar = `<div class="q-bar" role="img" aria-label="${i.n} dari ${S.cfg.maxLoan} wadah dipinjam">${
+      Array.from({length: S.cfg.maxLoan}, (_, k) => `<i class="${k < i.n ? 'f' : ''}"></i>`).join('')
+    }</div>`;
 
-    const list = S.loans.length
+    const tickets = S.loans.length
       ? S.loans.map((l, k) => `
-          <li class="loan">
-            <span class="loan-ic" aria-hidden="true">${LB}</span>
-            <div><b>Wadah ${k + 1}</b><span>Dipinjam ${fmt(l.borrowed_at)} · ${ago(l.borrowed_at)}</span></div>
-            ${isLate(l) ? '<em class="tag late">Terlambat</em>' : '<em class="tag">Aktif</em>'}
+          <li class="ticket">
+            <span class="no">${k + 1}</span>
+            <div><b>Wadah ${k + 1}</b><span>Diambil ${fmt(l.borrowed_at)}, ${ago(l.borrowed_at)}</span></div>
+            <em class="tag${isLate(l) ? ' late' : ''}">${isLate(l) ? 'Terlambat' : 'Aktif'}</em>
           </li>`).join('')
-      : '<li class="empty">Belum ada wadah yang kamu pinjam.<br><span>Pinjaman muncul di sini setelah wadah diambil dari stasiun.</span></li>';
+      : '<li class="empty">Belum ada wadah yang kamu pinjam.</li>';
 
     return `
       <div class="dash">
-        <div class="col">
-          <p class="eyebrow">Halo, ${first}</p>
-          <h2 class="greet">Mau pinjam atau kembalikan?</h2>
+        <section class="panel">
+          <div class="st">
+            <span class="st-code">${esc(S.stCode || 'Belum ada stasiun')}</span>
+            <span class="st-state${on ? ' on' : ''}">${on ? 'Terhubung' : 'Belum terhubung'}</span>
+          </div>
           ${warn}
           ${stationAlertBox()}
-          ${station}
-          ${actions}
+          <div class="btns">
+            <button class="key key-take" data-a="borrow"${canBorrow ? '' : ' disabled'}>
+              <small>01</small><b>Pinjam</b><span>${borrowHint}</span>
+            </button>
+            <button class="key key-give" data-a="ret"${canReturn ? '' : ' disabled'}>
+              <small>02</small><b>Kembalikan</b><span>${returnHint}</span>
+            </button>
+          </div>
           ${on
-            ? `<button class="link end" data-a="end">${svg('leave')}Selesai dan lepas stasiun</button>`
-            : `<button class="pb scan-cta" data-a="scan">${svg('qr')}<span>Scan QR stasiun</span></button>`}
-        </div>
-        <div class="col">
-          <section class="quota">
-            <div class="quota-top">
-              <div><p class="eyebrow">Kuota kamu</p><p class="quota-n"><b>${i.n}</b><span>/ ${S.cfg.maxLoan} wadah</span></p></div>
-              <p class="quota-who">${name}<br><span>${esc(S.p.nim ? 'NIM ' + S.p.nim : (S.u?.email || ''))}</span></p>
-            </div>
-            ${slots(i.n, S.cfg.maxLoan)}
-          </section>
-          <h3 class="list-h">Sedang kamu pinjam</h3>
-          <ul class="loans">${list}</ul>
-        </div>
+            ? `<button class="link" data-a="end">Selesai, lepas stasiun</button>`
+            : `<button class="pb scan-cta" data-a="scan">${svg('qr')}<span>Scan QR stasiun</span></button>
+               <p class="hint">Pinjam dan kembalikan hanya bisa setelah scan QR di stasiun.</p>`}
+        </section>
+        <section class="ledger">
+          <div class="who"><b>${name}</b><span>${idLine}</span></div>
+          <div class="quota">
+            <p class="q-n">${i.n}<em>/${S.cfg.maxLoan}</em></p>
+            <p class="q-l">wadah sedang kamu pinjam</p>
+            ${bar}
+          </div>
+          <h3>Pinjaman aktif</h3>
+          <ul class="tickets">${tickets}</ul>
+        </section>
       </div>
     `;
   },
 
   borrow: () => `
-    <p class="eyebrow">Peminjaman · ${esc(S.stCode || 'stasiun')}</p>
+    <p class="where">Pinjam / ${esc(S.stCode || 'stasiun')}</p>
     <h2>Stasiun sedang memeriksa wadah</h2>
-    <p class="lead">Pintu akan terbuka sendiri setelah wadah lolos pemeriksaan. Ambil satu wadah, lalu pintu menutup kembali.</p>
-    <div class="slot live">${LB}<span class="scanline" aria-hidden="true"></span></div>
-    ${steps([
-      ['Permintaan dikirim ke stasiun', 'done'],
-      ['Tag RFID dan berat wadah diperiksa', 'now'],
+    <p class="lead">Kalau wadah lolos, pintu terbuka sendiri. Ambil satu wadah, lalu pintu menutup.</p>
+    ${log([
+      ['Permintaan diterima stasiun', 'done'],
+      ['Membaca tag RFID dan menimbang wadah', 'now'],
       ['Pintu terbuka, ambil wadah', 'todo'],
-      ['Pinjaman dicatat atas nama kamu', 'todo']
+      ['Pinjaman dicatat atas namamu', 'todo']
     ])}
     ${btn('cancel', 'Batal', 1)}
   `,
 
   ret: () => `
-    <p class="eyebrow">Pengembalian · ${esc(S.stCode || 'stasiun')}</p>
+    <p class="where">Kembalikan / ${esc(S.stCode || 'stasiun')}</p>
     <h2>Masukkan wadah ke stasiun</h2>
     <p class="lead">Pintu terbuka sebentar lagi. Letakkan wadah di atas tatakan, stasiun membaca tag dan beratnya.</p>
     ${stationAlertBox()}
-    <div class="slot live">${LB}<span class="scanline" aria-hidden="true"></span></div>
-    ${steps([
-      ['Permintaan dikirim ke stasiun', 'done'],
-      ['Pintu terbuka, letakkan wadah', 'now'],
-      ['Tag RFID dan berat diperiksa', 'todo'],
+    ${log([
+      ['Permintaan diterima stasiun', 'done'],
+      ['Pintu terbuka, letakkan wadah di tatakan', 'now'],
+      ['Membaca tag RFID dan menimbang', 'todo'],
       ['Pinjaman ditutup, pintu menutup', 'todo']
     ])}
     ${btn('cancel', 'Batal', 1)}
   `,
 
   verify: () => `
-    <p class="eyebrow">Pengembalian</p>
-    <h2>Wadah diterima stasiun</h2>
-    <p class="lead">Ringkasan pemeriksaan otomatis.</p>
-    <div class="chk" id="c1">Tag RFID cocok dengan wadah terdaftar</div>
-    <div class="chk" id="c2">Berat ${esc(S.w)} g, dalam rentang ${S.cfg.weightMin}-${S.cfg.weightMax} g</div>
-    <div class="chk" id="c3">Wadah tercatat atas nama kamu</div>
+    <p class="where">Kembalikan / ${esc(S.stCode || 'stasiun')}</p>
+    <h2>Wadah diterima</h2>
+    <p class="lead">Hasil pemeriksaan stasiun.</p>
+    <div class="chks">
+      <div class="chk" id="c1">Tag RFID cocok dengan wadah terdaftar</div>
+      <div class="chk" id="c2">Berat ${esc(S.w)} g, dalam rentang ${S.cfg.weightMin}-${S.cfg.weightMax} g</div>
+      <div class="chk" id="c3">Wadah tercatat atas namamu</div>
+    </div>
     <div class="bar"><i id="pg"></i></div>
   `,
 
   ok: () => {
     const ret = S.kind === 'ret';
     return `
-      <div class="center">
-        ${ic('check')}
-        <h2>${ret ? 'Wadah sudah kembali' : 'Selamat makan!'}</h2>
-        <p class="lead">${ret ? 'Terima kasih sudah mengembalikan wadahnya.' : 'Wadah tercatat atas nama kamu. Kembalikan ke stasiun setelah dipakai.'}</p>
-      </div>
+      ${verdict(
+        'good',
+        ret ? 'Dikembalikan' : 'Dipinjam',
+        ret ? 'Wadah sudah kembali' : 'Pinjaman tercatat',
+        ret ? 'Terima kasih sudah mengembalikan wadahnya.' : 'Wadah tercatat atas namamu. Kembalikan ke stasiun setelah dipakai.'
+      )}
       <div class="receipt">
-        <div><span>Transaksi</span><b>${ret ? 'Pengembalian' : 'Peminjaman'}</b></div>
+        <div><span>Jenis</span><b>${ret ? 'Pengembalian' : 'Peminjaman'}</b></div>
         <div><span>Stasiun</span><b>${esc(S.stCode || '-')}</b></div>
-        ${ret && S.w ? `<div><span>Berat terukur</span><b>${esc(S.w)} g</b></div>` : ''}
-        <div><span>Kuota sekarang</span><b>${S.loans.length} / ${S.cfg.maxLoan} wadah</b></div>
+        ${ret && S.w ? `<div><span>Berat</span><b>${esc(S.w)} g</b></div>` : ''}
+        <div><span>Waktu</span><b>${nowStr()}</b></div>
+        <div><span>Pinjaman aktif</span><b>${S.loans.length} dari ${S.cfg.maxLoan}</b></div>
       </div>
       ${btn('dash', 'Kembali ke menu')}
     `;
   },
 
   err: () => `
-    <div class="center">
-      ${ic('x', 'e')}
-      <h2>Transaksi belum berhasil</h2>
-    </div>
+    ${verdict('bad', 'Gagal', 'Transaksi belum berhasil', '')}
     ${alertBox(S.msg)}
     ${stationAlertBox()}
     ${btn('retry', 'Coba lagi')}
@@ -308,11 +308,7 @@ const V = {
   `,
 
   timeout: () => `
-    <div class="center">
-      ${ic('clock', 'w')}
-      <h2>Sesi stasiun berakhir</h2>
-      <p class="lead">Tidak ada aktivitas beberapa saat, jadi stasiun dilepas untuk pengguna lain. Scan QR lagi untuk melanjutkan.</p>
-    </div>
+    ${verdict('wait', 'Habis', 'Sesi stasiun berakhir', 'Tidak ada aktivitas beberapa saat, jadi stasiun dilepas untuk pengguna lain. Scan QR lagi untuk melanjutkan.')}
     ${btn('scan', 'Scan ulang')}
   `
 };
@@ -1010,21 +1006,17 @@ addEventListener('pagehide', () => {
   }
 });
 
-/* ---------- Intro Universitas Trisakti ---------- */
+/* ---------- Intro ARCID ---------- */
 
 const intro = () => `
-  <div class="intro">
-    <div class="lw">
-      <div class="rings"><i></i><i></i><i></i><i></i></div>
-      <img class="il" src="assets/logo.png" alt="">
+  <div class="intro arcid-intro">
+    <div class="arcid-stage" aria-hidden="true">
+      <img class="arcid-logo" src="assets/arcid-logo.svg" alt="">
+      <span class="arcid-shadow"></span>
     </div>
-    <h2 class="it" aria-label="Universitas Trisakti">
-      ${[...'Universitas Trisakti'].map((c, i) =>
-        `<span style="--i:${i}">${c === ' ' ? '&nbsp;' : c}</span>`
-      ).join('')}
+    <h2 class="arcid-name" aria-label="ARCID">
+      ${[...'ARCID'].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('')}
     </h2>
-    <p class="is">Stasiun Wadah Pintar</p>
-    <div class="ib"><i></i></div>
   </div>
 `;
 
@@ -1046,7 +1038,7 @@ function splash() {
   let alreadyShown = false;
 
   try {
-    alreadyShown = sessionStorage.getItem('swp_trisakti_intro_shown') === '1';
+    alreadyShown = sessionStorage.getItem('swp_arcid_intro_shown') === '1';
   } catch {}
 
   // Jangan tampilkan intro lagi jika sudah muncul pada tab ini.
@@ -1060,17 +1052,15 @@ function splash() {
 
   // Tandai sebelum intro dimulai agar tidak terulang setelah redirect OAuth.
   try {
-    sessionStorage.setItem('swp_trisakti_intro_shown', '1');
+    sessionStorage.setItem('swp_arcid_intro_shown', '1');
   } catch {}
 
   SP.hidden = false;
   SP.classList.remove('out');
-  SP.innerHTML = intro() + '<button class="skip" type="button">Lewati intro</button>';
+  SP.innerHTML = intro();
 
   document.body.style.overflow = 'hidden';
-  SP.querySelector('.skip').onclick = endSplash;
-
-  spT = setTimeout(endSplash, 4700);
+  spT = setTimeout(endSplash, 4100);
 }
 
 splash();
