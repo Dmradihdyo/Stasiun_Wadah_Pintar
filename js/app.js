@@ -1011,7 +1011,7 @@ addEventListener('pagehide', () => {
 const intro = () => `
   <div class="intro arcid-intro">
     <div class="arcid-stage" aria-hidden="true">
-      <img class="arcid-logo" src="assets/arcid-logo.svg" alt="">
+      <img class="arcid-logo" src="assets/arcid-logo.png" alt="">
       <span class="arcid-shadow"></span>
     </div>
     <h2 class="arcid-name" aria-label="ARCID">
