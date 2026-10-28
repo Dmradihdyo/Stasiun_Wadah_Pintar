@@ -43,7 +43,7 @@ Buzzer: dua bunyi pendek = diterima, satu panjang = ditolak, tiga pendek = masih
 | Aturan | Nilai bawaan |
 |---|---|
 | Kuota pinjam | 2 wadah per pengguna |
-| Berat wadah valid | 80-120 g (pinjam dan kembalikan) |
+| Berat wadah valid | 80-150 g (pinjam dan kembalikan) |
 | Ambang timbangan kosong | 8 g |
 | Masa sesi web | 60 detik, diperpanjang tiap 15 detik selama web terbuka |
 | Stasiun dianggap hidup | terlihat dalam 90 detik terakhir |
