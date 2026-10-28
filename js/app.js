@@ -26,6 +26,7 @@ const P = {
   qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM21 14v.01M14 21h.01M17 21h4v-4"/>',
   out: '<path d="M4 13v6a2 2 0 002 2h12a2 2 0 002-2v-6"/><path d="M12 15V3M8 7l4-4 4 4"/>',
   inn: '<path d="M4 13v6a2 2 0 002 2h12a2 2 0 002-2v-6"/><path d="M12 3v12M8 11l4 4 4-4"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
   leave: '<path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l5-5-5-5M15 12H3"/>'
 };
 
@@ -75,7 +76,7 @@ function reasonText(r) {
     locked: 'Kuota dikunci karena ada wadah yang terlambat dikembalikan atau dikunci petugas',
     no_stock: 'Wadah di stasiun sedang habis',
     no_loan: 'Anda tidak memiliki wadah yang sedang dipinjam',
-    profile_incomplete: 'Profil belum lengkap. Hubungi petugas kampus.',
+    profile_incomplete: 'Profil belum lengkap. Hubungi petugas.',
     session_expired: 'Sesi stasiun berakhir. Scan QR ulang',
     not_removed: 'Wadah tidak diambil dalam batas waktu. Peminjaman dibatalkan, silakan coba lagi',
     removal_in_progress: 'Peminjaman sedang menunggu wadah diambil. Ambil wadah dari stasiun'
@@ -90,48 +91,46 @@ const STN_ERR = {
 
 /* ---------- Tampilan ---------- */
 
-// Baris proses di layar transaksi, gaya struk printer. Status: done | now | todo.
-const log = list => `<ol class="log">${list.map(([t, st]) =>
-  `<li class="${st}"><span>${t}</span></li>`
+// Langkah proses di layar transaksi. Status: done | now | todo.
+const steps = list => `<ol class="steps">${list.map(([t, st]) =>
+  `<li class="${st}"><span class="dot" aria-hidden="true"></span><span>${t}</span></li>`
 ).join('')}</ol>`;
 
 const nowStr = () => new Date().toLocaleString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
 
-// Hasil transaksi: cap singkat, judul, dan penjelasan. kind: good | bad | wait.
-const verdict = (kind, stamp, title, text) => `
-  <div class="verdict">
-    <span class="stamp ${kind}">${stamp}</span>
-    <h2>${title}</h2>
-    ${text ? `<p class="lead">${text}</p>` : ''}
+// Layar status: ikon, judul, penjelasan. kind: ok | e | w
+const status = (icon, kind, title, text) => `
+  <div class="center">
+    ${ic(icon, kind)}
+    <h2 class="ttl">${title}</h2>
+    ${text ? `<p class="sub2">${text}</p>` : ''}
   </div>`;
+
+const backBtn = (a, label) => `<button class="back" data-a="${a}" aria-label="${label}">${svg('back')}</button>`;
 
 const V = {
   login: () => `
-    <div class="login">
-      <div class="login-main">
-        <div class="mark">
-          <img src="assets/logo.png" alt="Logo Universitas Trisakti">
-          <span>Universitas Trisakti</span>
-        </div>
-        <h1>Wadah makan pakai ulang. <mark>Ambil di stasiun</mark>, kembalikan di stasiun.</h1>
-        <p class="lead">Masuk dengan akun kampus, scan QR di stasiun, lalu pilih pinjam atau kembalikan. Pintunya terbuka sendiri.</p>
-        ${alertBox(S.msg)}
-        <button class="pb gbtn" data-a="login">${GLOGO}<span>Masuk dengan Google</span></button>
-        <p class="fine">Hanya untuk akun <b>@trisakti.ac.id</b></p>
-      </div>
-      <dl class="spec">
-        <div><dt>Batas pinjam</dt><dd>${S.cfg.maxLoan} wadah per orang</dd></div>
-        <div><dt>Pemeriksaan</dt><dd>Tag RFID dan berat ${S.cfg.weightMin}-${S.cfg.weightMax} g</dd></div>
-        <div><dt>Pintu</dt><dd>Buka dan tutup otomatis</dd></div>
-      </dl>
+    <div class="lg-top">
+      <img src="assets/arcid-logo.png" alt="">
+      <span>ARCID</span>
+    </div>
+    <h1 class="ttl">Masuk ke akunmu</h1>
+    <p class="sub2">Pinjam dan kembalikan wadah makan di stasiun, tanpa antre.</p>
+    ${alertBox(S.msg)}
+    <button class="pb gbtn" data-a="login"><span class="g">${GLOGO}</span><span>Masuk dengan Google</span></button>
+    <p class="sep">Cara pakai</p>
+    <div class="how">
+      <div>${svg('qr')}<span>Scan QR di stasiun</span></div>
+      <div>${svg('out')}<span>Pilih pinjam atau kembalikan</span></div>
+      <div>${svg('inn')}<span>Pintu terbuka sendiri</span></div>
     </div>
   `,
 
   nim: () => `
-    <h2>Masukkan NIM</h2>
-    <p class="lead">NIM dipakai untuk mencatat pinjaman atas namamu.</p>
-    <label class="lbl">NIM
-      <input id="nim" class="big-in" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="2021xxxxxx">
+    <h2 class="ttl">Lengkapi data</h2>
+    <p class="sub2">Masukkan NIM untuk mencatat pinjaman atas namamu.</p>
+    <label class="fld"><span>NIM</span>
+      <input id="nim" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="Contoh: 2021xxxxxx">
     </label>
     ${alertBox(S.msg)}
     ${btn('savenim', 'Simpan')}
@@ -141,27 +140,27 @@ const V = {
   wait: () => `
     <div class="center">
       <div class="spin" aria-hidden="true"></div>
-      <h2>Menghubungi stasiun</h2>
-      <p class="lead">Memeriksa apakah stasiun siap dipakai.</p>
+      <h2 class="ttl">Menghubungi stasiun</h2>
+      <p class="sub2">Memeriksa apakah stasiun siap dipakai.</p>
     </div>
   `,
 
   scan: () => `
-    <h2>Scan QR di stasiun</h2>
-    <p class="lead">QR ada di bagian depan stasiun. Arahkan kamera sampai terbaca.</p>
+    ${backBtn('dash', 'Kembali ke menu')}
+    <h2 class="ttl">Scan QR stasiun</h2>
+    <p class="sub2">Arahkan kamera ke QR di bagian depan stasiun.</p>
     <div class="view" aria-hidden="true"><video id="cam" playsinline muted></video><i></i></div>
-    <div id="camerr" class="alert" hidden>Kamera tidak bisa dipakai. Ketik kode stasiun di bawah.</div>
+    <div id="camerr" class="alert" hidden>Kamera tidak bisa dipakai. Masukkan kode stasiun di bawah.</div>
     ${alertBox(S.msg)}
-    <p class="or">atau ketik kode stasiun</p>
-    <div class="row code-row">
+    <p class="sep">atau masukkan kode</p>
+    <div class="code-row">
       <input id="sid" placeholder="SLB-001" aria-label="Kode stasiun" autocomplete="off" autocapitalize="characters">
       <button class="pb inl" data-a="manual">Buka</button>
     </div>
-    <button class="link" data-a="dash">Lihat wadah saya tanpa scan</button>
   `,
 
   busy: () => `
-    ${verdict('wait', 'Dipakai', 'Stasiun sedang dipakai', 'Ada pengguna lain di stasiun ini. Tunggu transaksinya selesai, lalu scan ulang.')}
+    ${status('clock', 'w', 'Stasiun sedang dipakai', 'Ada pengguna lain di stasiun ini. Tunggu sebentar, lalu scan ulang.')}
     ${btn('again', 'Scan ulang')}
     ${btn('scan', 'Kembali', 1)}
   `,
@@ -169,14 +168,17 @@ const V = {
   dash: () => {
     const i = info();
     const on = !!S.sess;
-    const name = esc(S.p.full_name || S.u?.email || 'Pengguna');
+    const full = String(S.p.full_name || S.u?.email || 'Pengguna');
+    const name = esc(full);
+    const initial = esc(full.trim().charAt(0).toUpperCase() || 'A');
     const idLine = esc(S.p.nim ? 'NIM ' + S.p.nim : (S.u?.email || ''));
     const left = S.cfg.maxLoan - i.n;
+    const pct = Math.min(100, Math.round(i.n / S.cfg.maxLoan * 100));
 
     const warn = i.late
-      ? '<div class="alert"><b>Ada wadah yang lewat jatuh tempo.</b><br>Kuota dikunci sampai wadah dikembalikan.</div>'
+      ? '<div class="alert"><b>Ada wadah yang lewat jatuh tempo.</b> Kuota dikunci sampai wadah dikembalikan.</div>'
       : (S.p.locked
-          ? '<div class="alert">Kuota kamu dikunci oleh petugas. Hubungi petugas kampus.</div>'
+          ? '<div class="alert">Kuota kamu sedang dikunci. Hubungi petugas.</div>'
           : '');
 
     const canBorrow = on && !i.locked && !i.full;
@@ -185,66 +187,62 @@ const V = {
     const borrowHint = !on ? 'Scan QR dulu'
       : i.locked ? 'Kuota dikunci'
       : i.full ? 'Kuota penuh'
-      : `Sisa jatah ${left}`;
+      : `Sisa ${left} wadah`;
 
     const returnHint = !on ? 'Scan QR dulu'
-      : i.n ? `${i.n} wadah di tanganmu`
+      : i.n ? `${i.n} wadah dipinjam`
       : 'Belum ada pinjaman';
 
-    const bar = `<div class="q-bar" role="img" aria-label="${i.n} dari ${S.cfg.maxLoan} wadah dipinjam">${
-      Array.from({length: S.cfg.maxLoan}, (_, k) => `<i class="${k < i.n ? 'f' : ''}"></i>`).join('')
-    }</div>`;
-
-    const tickets = S.loans.length
+    const loans = S.loans.length
       ? S.loans.map((l, k) => `
-          <li class="ticket">
-            <span class="no">${k + 1}</span>
-            <div><b>Wadah ${k + 1}</b><span>Diambil ${fmt(l.borrowed_at)}, ${ago(l.borrowed_at)}</span></div>
+          <li class="loan">
+            <span class="loan-ic" aria-hidden="true">${LB}</span>
+            <div><b>Wadah ${k + 1}</b><span>Dipinjam ${fmt(l.borrowed_at)} · ${ago(l.borrowed_at)}</span></div>
             <em class="tag${isLate(l) ? ' late' : ''}">${isLate(l) ? 'Terlambat' : 'Aktif'}</em>
           </li>`).join('')
       : '<li class="empty">Belum ada wadah yang kamu pinjam.</li>';
 
     return `
-      <div class="dash">
-        <section class="panel">
-          <div class="st">
-            <span class="st-code">${esc(S.stCode || 'Belum ada stasiun')}</span>
-            <span class="st-state${on ? ' on' : ''}">${on ? 'Terhubung' : 'Belum terhubung'}</span>
-          </div>
-          ${warn}
-          ${stationAlertBox()}
-          <div class="btns">
-            <button class="key key-take" data-a="borrow"${canBorrow ? '' : ' disabled'}>
-              <small>01</small><b>Pinjam</b><span>${borrowHint}</span>
-            </button>
-            <button class="key key-give" data-a="ret"${canReturn ? '' : ' disabled'}>
-              <small>02</small><b>Kembalikan</b><span>${returnHint}</span>
-            </button>
-          </div>
-          ${on
-            ? `<button class="link" data-a="end">Selesai, lepas stasiun</button>`
-            : `<button class="pb scan-cta" data-a="scan">${svg('qr')}<span>Scan QR stasiun</span></button>
-               <p class="hint">Pinjam dan kembalikan hanya bisa setelah scan QR di stasiun.</p>`}
-        </section>
-        <section class="ledger">
-          <div class="who"><b>${name}</b><span>${idLine}</span></div>
-          <div class="quota">
-            <p class="q-n">${i.n}<em>/${S.cfg.maxLoan}</em></p>
-            <p class="q-l">wadah sedang kamu pinjam</p>
-            ${bar}
-          </div>
-          <h3>Pinjaman aktif</h3>
-          <ul class="tickets">${tickets}</ul>
-        </section>
+      <div class="who-row">
+        <span class="av" aria-hidden="true">${initial}</span>
+        <div><b>${name}</b><span>${idLine}</span></div>
       </div>
+      ${warn}
+      ${stationAlertBox()}
+      <div class="stn${on ? ' on' : ''}">
+        <span class="dot" aria-hidden="true"></span>
+        <div>
+          <b>${on ? 'Terhubung ke ' + esc(S.stCode || 'stasiun') : 'Belum terhubung ke stasiun'}</b>
+          <span>${on ? 'Pilih pinjam atau kembalikan' : 'Scan QR di stasiun untuk mulai'}</span>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="act act-p act-out" data-a="borrow"${canBorrow ? '' : ' disabled'}>
+          ${svg('out')}<b>Pinjam</b><span>${borrowHint}</span>
+        </button>
+        <button class="act act-in" data-a="ret"${canReturn ? '' : ' disabled'}>
+          ${svg('inn')}<b>Kembalikan</b><span>${returnHint}</span>
+        </button>
+      </div>
+      ${on
+        ? `<button class="link" data-a="end">${svg('leave')}Selesai, lepas stasiun</button>`
+        : `<button class="pb scan-cta" data-a="scan">${svg('qr')}<span>Scan QR stasiun</span></button>`}
+      <div class="quota">
+        <div class="q-top"><span>Kuota pinjam</span><b>${i.n}<em> / ${S.cfg.maxLoan}</em></b></div>
+        <div class="q-bar" role="img" aria-label="${i.n} dari ${S.cfg.maxLoan} wadah dipinjam"><i style="width:${pct}%"></i></div>
+      </div>
+      <h3 class="sec">Pinjaman aktif</h3>
+      <ul class="loans">${loans}</ul>
     `;
   },
 
   borrow: () => `
-    <p class="where">Pinjam / ${esc(S.stCode || 'stasiun')}</p>
-    <h2>Stasiun sedang memeriksa wadah</h2>
-    <p class="lead">Kalau wadah lolos, pintu terbuka sendiri. Ambil satu wadah, lalu pintu menutup.</p>
-    ${log([
+    <div class="center">
+      <div class="proc-art" aria-hidden="true">${LB}</div>
+      <h2 class="ttl">Stasiun memeriksa wadah</h2>
+      <p class="sub2">Pintu terbuka sendiri setelah wadah lolos pemeriksaan. Ambil satu wadah, lalu pintu menutup.</p>
+    </div>
+    ${steps([
       ['Permintaan diterima stasiun', 'done'],
       ['Membaca tag RFID dan menimbang wadah', 'now'],
       ['Pintu terbuka, ambil wadah', 'todo'],
@@ -254,13 +252,15 @@ const V = {
   `,
 
   ret: () => `
-    <p class="where">Kembalikan / ${esc(S.stCode || 'stasiun')}</p>
-    <h2>Masukkan wadah ke stasiun</h2>
-    <p class="lead">Pintu terbuka sebentar lagi. Letakkan wadah di atas tatakan, stasiun membaca tag dan beratnya.</p>
+    <div class="center">
+      <div class="proc-art" aria-hidden="true">${LB}</div>
+      <h2 class="ttl">Masukkan wadah ke stasiun</h2>
+      <p class="sub2">Pintu terbuka sebentar lagi. Letakkan wadah di atas tatakan.</p>
+    </div>
     ${stationAlertBox()}
-    ${log([
+    ${steps([
       ['Permintaan diterima stasiun', 'done'],
-      ['Pintu terbuka, letakkan wadah di tatakan', 'now'],
+      ['Pintu terbuka, letakkan wadah', 'now'],
       ['Membaca tag RFID dan menimbang', 'todo'],
       ['Pinjaman ditutup, pintu menutup', 'todo']
     ])}
@@ -268,9 +268,10 @@ const V = {
   `,
 
   verify: () => `
-    <p class="where">Kembalikan / ${esc(S.stCode || 'stasiun')}</p>
-    <h2>Wadah diterima</h2>
-    <p class="lead">Hasil pemeriksaan stasiun.</p>
+    <div class="center">
+      <h2 class="ttl">Wadah diterima stasiun</h2>
+      <p class="sub2">Hasil pemeriksaan otomatis.</p>
+    </div>
     <div class="chks">
       <div class="chk" id="c1">Tag RFID cocok dengan wadah terdaftar</div>
       <div class="chk" id="c2">Berat ${esc(S.w)} g, dalam rentang ${S.cfg.weightMin}-${S.cfg.weightMax} g</div>
@@ -282,11 +283,11 @@ const V = {
   ok: () => {
     const ret = S.kind === 'ret';
     return `
-      ${verdict(
-        'good',
-        ret ? 'Dikembalikan' : 'Dipinjam',
-        ret ? 'Wadah sudah kembali' : 'Pinjaman tercatat',
-        ret ? 'Terima kasih sudah mengembalikan wadahnya.' : 'Wadah tercatat atas namamu. Kembalikan ke stasiun setelah dipakai.'
+      ${status(
+        'check',
+        'ok',
+        ret ? 'Pengembalian berhasil' : 'Peminjaman berhasil',
+        ret ? 'Terima kasih sudah mengembalikan wadah.' : 'Wadah tercatat atas namamu. Kembalikan ke stasiun setelah dipakai.'
       )}
       <div class="receipt">
         <div><span>Jenis</span><b>${ret ? 'Pengembalian' : 'Peminjaman'}</b></div>
@@ -300,7 +301,7 @@ const V = {
   },
 
   err: () => `
-    ${verdict('bad', 'Gagal', 'Transaksi belum berhasil', '')}
+    ${status('x', 'e', 'Transaksi belum berhasil', '')}
     ${alertBox(S.msg)}
     ${stationAlertBox()}
     ${btn('retry', 'Coba lagi')}
@@ -308,7 +309,7 @@ const V = {
   `,
 
   timeout: () => `
-    ${verdict('wait', 'Habis', 'Sesi stasiun berakhir', 'Tidak ada aktivitas beberapa saat, jadi stasiun dilepas untuk pengguna lain. Scan QR lagi untuk melanjutkan.')}
+    ${status('clock', 'w', 'Sesi stasiun berakhir', 'Tidak ada aktivitas beberapa saat, jadi stasiun dilepas untuk pengguna lain. Scan QR lagi untuk melanjutkan.')}
     ${btn('scan', 'Scan ulang')}
   `
 };
@@ -772,7 +773,7 @@ function cleanup() {
   const q = new URLSearchParams(location.search + '&' + location.hash.slice(1));
 
   if (q.get('error_description') || q.get('error')) {
-    LOGIN_MSG = 'Login gagal atau ditolak. Gunakan akun Google kampus dengan domain @trisakti.ac.id.';
+    LOGIN_MSG = 'Login gagal atau ditolak. Gunakan akun Google yang terdaftar.';
     history.replaceState(null, '', location.pathname);
   }
 }
@@ -797,14 +798,14 @@ async function onUser(u) {
     S.u = null;
     S.p = null;
     renderWho();
-    show('login', LOGIN_MSG || 'Silakan masuk menggunakan akun Google kampus Trisakti.');
+    show('login', LOGIN_MSG || '');
     LOGIN_MSG = '';
     handlingUserId = '';
     return;
   }
 
   if (!okMail(u.email)) {
-    const message = 'Akses ditolak. Gunakan akun Google kampus dengan email @trisakti.ac.id.';
+    const message = 'Akses ditolak. Akun ini tidak terdaftar untuk memakai stasiun.';
 
     rejectingAccount = true;
     cleanup();
@@ -814,9 +815,9 @@ async function onUser(u) {
 
     try {
       const {error} = await sb.auth.signOut();
-      if (error) console.error('Gagal mengakhiri sesi akun non-kampus:', error);
+      if (error) console.error('Gagal mengakhiri sesi akun yang ditolak:', error);
     } catch (e) {
-      console.error('Gagal mengakhiri sesi akun non-kampus:', e);
+      console.error('Gagal mengakhiri sesi akun yang ditolak:', e);
     }
 
     rejectingAccount = false;
