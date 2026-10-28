@@ -80,7 +80,7 @@ export function mount(S, sb) {
       <label class="lbl">Berat minimum wadah (g)<input name="weight_min" type="number" min="0" step="any" value="${c.weightMin}" required></label>
       <label class="lbl">Berat maksimum wadah (g)<input name="weight_max" type="number" min="0" step="any" value="${c.weightMax}" required></label>
       <label class="lbl">Lama peminjaman sebelum jatuh tempo (hari)<input name="loan_days" type="number" min="1" value="${c.loanDays}" required></label>
-      <label class="lbl">Domain email kampus yang boleh login (pisahkan koma)<input name="allowed_domains" value="${esc(dom)}" required></label>
+      <label class="lbl">Domain email yang boleh login (pisahkan koma)<input name="allowed_domains" value="${esc(dom)}" required></label>
       <button class="pb inl" style="margin-top:18px">Simpan pengaturan</button></form>`;
     }
   };
