@@ -4,9 +4,7 @@
 
 Proyek PKM-KC. Status: **prototipe yang sudah berjalan** (web, backend, dan perangkat keras terhubung).
 
-**Demo web:** 
-https://dmradihdyo.github.io/ARCID-3D-SIMULASI/
-https://dmradihdyo.github.io/Stasiun_Wadah_Pintar/
+**Demo web:** https://dmradihdyo.github.io/ARCID-3D-SIMULASI/
 
 ## Daftar isi
 
